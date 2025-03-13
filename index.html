@@ -1,0 +1,308 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Colorful Number Game</title>
+  <style>
+    /* Base Styles with Holi-inspired Background */
+    body {
+      margin: 0;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      /* Vibrant multi-color gradient background */
+      background: linear-gradient(135deg, #ff9a9e, #fad0c4, #fad0c4, #ffdde1);
+      background-size: 400% 400%;
+      animation: gradientBG 15s ease infinite;
+      color: #333;
+      text-align: center;
+    }
+    @keyframes gradientBG {
+      0% { background-position: 0% 50%; }
+      50% { background-position: 100% 50%; }
+      100% { background-position: 0% 50%; }
+    }
+    /* Header with vibrant gradient */
+    .header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: linear-gradient(90deg, #ff6ec4, #7873f5);
+      color: #fff;
+      padding: 15px;
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      z-index: 100;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+    }
+    .header .icon {
+      width: 24px;
+      height: 24px;
+      cursor: pointer;
+    }
+    .header .title {
+      font-size: 1.5rem;
+      font-weight: bold;
+    }
+    /* Settings Menu */
+    .settings-menu {
+      display: none;
+      position: fixed;
+      top: 60px;
+      right: 15px;
+      background: #fff;
+      border: 1px solid #ddd;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+      border-radius: 5px;
+      z-index: 110;
+    }
+    .settings-menu ul {
+      list-style: none;
+      margin: 0;
+      padding: 10px;
+    }
+    .settings-menu ul li {
+      padding: 10px;
+      cursor: pointer;
+      border-bottom: 1px solid #ddd;
+    }
+    .settings-menu ul li:last-child {
+      border-bottom: none;
+    }
+    .settings-menu ul li:hover {
+      background: #f0f0f0;
+    }
+    /* Level Display (shifted down from header) */
+    #levelDisplay {
+      margin-top: 70px;
+      font-size: 1.2rem;
+      font-weight: bold;
+    }
+    /* Game Board Container */
+    .game-container {
+      margin: 20px auto 0;
+      max-width: 360px;
+      display: grid;
+      gap: 5px;
+      background: rgba(255, 255, 255, 0.9);
+      border-radius: 10px;
+      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+      padding: 10px;
+    }
+    /* Tile styling with vibrant colors */
+    .tile {
+      color: #fff;
+      font-size: 1.5rem;
+      font-weight: bold;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      border-radius: 5px;
+      transition: transform 0.2s;
+      aspect-ratio: 1;
+    }
+    .tile:hover {
+      transform: scale(1.05);
+    }
+    .tile.empty {
+      background: transparent;
+      cursor: default;
+    }
+    /* Responsive adjustments */
+    @media (max-width: 400px) {
+      .game-container {
+        max-width: 280px;
+      }
+      .header .title {
+        font-size: 1.2rem;
+      }
+    }
+  </style>
+</head>
+<body>
+  <!-- Header with Back and Settings buttons -->
+  <header class="header">
+    <div class="icon" onclick="goBack()" title="Back">
+      <!-- Back arrow SVG -->
+      <svg viewBox="0 0 24 24" fill="white">
+        <path d="M15.41 7.41L14 6l-6 6 6 6 1.41-1.41L10.83 12z"/>
+      </svg>
+    </div>
+    <div class="title">Colorful Number Game</div>
+    <div class="icon" onclick="toggleSettings()" title="Settings">
+      <!-- Settings gear SVG -->
+      <svg viewBox="0 0 24 24" fill="white">
+        <path d="M19.14,12.94a7.14,7.14,0,0,0,.05-.94,7.14,7.14,0,0,0-.05-.94l2.11-1.65a.5.5,0,0,0,.12-.63l-2-3.46a.5.5,0,0,0-.6-.22l-2.49,1a7.23,7.23,0,0,0-1.62-.94L14.5,2.5a.5.5,0,0,0-.5-.5H10a.5.5,0,0,0-.5.5l-.38,2.54a7.23,7.23,0,0,0-1.62.94l-2.49-1a.5.5,0,0,0-.6.22l-2,3.46a.5.5,0,0,0,.12.63L4.86,11.06a7.14,7.14,0,0,0-.05.94,7.14,7.14,0,0,0,.05.94L2.75,14.59a.5.5,0,0,0-.12.63l2,3.46a.5.5,0,0,0,.6.22l2.49-1a7.23,7.23,0,0,0,1.62.94L9.5,21.5a.5.5,0,0,0,.5.5h4a.5.5,0,0,0,.5-.5l.38-2.54a7.23,7.23,0,0,0,1.62-.94l2.49,1a.5.5,0,0,0,.6-.22l2-3.46a.5.5,0,0,0-.12-.63ZM12,15.5A3.5,3.5,0,1,1,15.5,12,3.5,3.5,0,0,1,12,15.5Z"/>
+      </svg>
+    </div>
+  </header>
+
+  <!-- Settings Menu -->
+  <div class="settings-menu" id="settingsMenu">
+    <ul>
+      <li onclick="restartGame()">Restart</li>
+      <li onclick="goHome()">Home</li>
+    </ul>
+  </div>
+
+  <!-- Level Indicator -->
+  <div id="levelDisplay">Level: 1</div>
+
+  <!-- Game Board Container -->
+  <div class="game-container" id="board"></div>
+
+  <script>
+    // Global game variables
+    let currentLevel = 1;
+    const totalLevels = 10;
+    let boardSize;
+    let numbers = [];
+    let solvedBoard = [];
+
+    // Initialize the game based on current level
+    function initGame() {
+      // Set board size: levels 1-3 use 3x3, levels 4-10 use 4x4
+      boardSize = (currentLevel <= 3) ? 3 : 4;
+      
+      // Build the solved board: numbers 1 ... (n*n - 1) with last tile null
+      solvedBoard = [];
+      for (let i = 1; i < boardSize * boardSize; i++) {
+        solvedBoard.push(i);
+      }
+      solvedBoard.push(null);
+      
+      // Start with the solved configuration
+      numbers = solvedBoard.slice();
+
+      // Shuffle the board with a number of random moves based on level
+      const moves = getShuffleMoves(currentLevel, boardSize);
+      simulateShuffle(moves);
+      
+      updateLevelDisplay();
+      renderBoard();
+    }
+
+    // Determine the number of random moves (difficulty) based on level and board size
+    function getShuffleMoves(level, boardSize) {
+      if (boardSize === 3) {
+        return 10 + (level - 1) * 5; // Level 1:10, Level 2:15, Level 3:20 moves
+      } else {
+        return 40 + (level - 4) * 10; // Level 4:40, Level 5:50, ... Level 10:100 moves
+      }
+    }
+
+    // Simulate random valid moves from the solved state to guarantee solvability
+    function simulateShuffle(moves) {
+      for (let i = 0; i < moves; i++) {
+        let emptyIndex = numbers.indexOf(null);
+        let validMoves = getValidMoves(emptyIndex);
+        let randomMove = validMoves[Math.floor(Math.random() * validMoves.length)];
+        [numbers[emptyIndex], numbers[randomMove]] = [numbers[randomMove], numbers[emptyIndex]];
+      }
+    }
+
+    // Get indexes that can move into the empty space (up, down, left, right)
+    function getValidMoves(emptyIndex) {
+      let moves = [];
+      let row = Math.floor(emptyIndex / boardSize);
+      let col = emptyIndex % boardSize;
+      if (row > 0) moves.push(emptyIndex - boardSize);
+      if (row < boardSize - 1) moves.push(emptyIndex + boardSize);
+      if (col > 0) moves.push(emptyIndex - 1);
+      if (col < boardSize - 1) moves.push(emptyIndex + 1);
+      return moves;
+    }
+
+    // Returns a tile color based on its number, cycling through a festive palette
+    function getTileColor(num) {
+      const colors = [
+        "#ff6ec4", // vibrant pink
+        "#f9d423", // bright yellow
+        "#7873f5", // vivid purple-blue
+        "#2ecc71", // fresh green
+        "#3498db", // sky blue
+        "#e74c3c", // bold red
+        "#f1c40f", // sunny gold
+        "#fd79a8", // playful pink
+        "#9b59b6", // royal purple
+        "#e67e22", // energetic orange
+        "#1abc9c"  // turquoise
+      ];
+      return colors[(num - 1) % colors.length];
+    }
+
+    // Render the board dynamically
+    function renderBoard() {
+      const board = document.getElementById("board");
+      board.innerHTML = "";
+      board.style.gridTemplateColumns = `repeat(${boardSize}, 1fr)`;
+      numbers.forEach((num, index) => {
+        let tile = document.createElement("div");
+        tile.classList.add("tile");
+        if (num === null) {
+          tile.classList.add("empty");
+        } else {
+          tile.textContent = num;
+          tile.style.backgroundColor = getTileColor(num);
+          tile.onclick = () => moveTile(index);
+        }
+        board.appendChild(tile);
+      });
+    }
+
+    // Move a tile if it's adjacent to the empty space
+    function moveTile(index) {
+      let emptyIndex = numbers.indexOf(null);
+      let validMoves = getValidMoves(emptyIndex);
+      if (validMoves.includes(index)) {
+        [numbers[emptyIndex], numbers[index]] = [numbers[index], numbers[emptyIndex]];
+        renderBoard();
+        checkSolved();
+      }
+    }
+
+    // Check if the current board matches the solved state
+    function checkSolved() {
+      let solved = numbers.every((num, i) => num === solvedBoard[i]);
+      if (solved) {
+        if (currentLevel < totalLevels) {
+          setTimeout(() => {
+            alert(`Level ${currentLevel} complete! Proceeding to next level.`);
+            currentLevel++;
+            initGame();
+          }, 200);
+        } else {
+          setTimeout(() => {
+            alert("Congratulations! You've completed all levels!");
+          }, 200);
+        }
+      }
+    }
+
+    // Restart the current level
+    function restartGame() {
+      initGame();
+    }
+
+    // Navigation functions
+    function goBack() {
+      window.history.back();
+    }
+    function goHome() {
+      window.location.href = "index.html";
+    }
+    function toggleSettings() {
+      let menu = document.getElementById("settingsMenu");
+      menu.style.display = menu.style.display === "block" ? "none" : "block";
+    }
+    function updateLevelDisplay() {
+      document.getElementById("levelDisplay").textContent = "Level: " + currentLevel;
+    }
+
+    // Start game when the page loads
+    window.onload = initGame;
+  </script>
+</body>
+</html>
