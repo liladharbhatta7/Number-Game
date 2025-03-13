@@ -9,7 +9,6 @@
     body {
       margin: 0;
       font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-      /* Vibrant multi-color gradient background */
       background: linear-gradient(135deg, #ff9a9e, #fad0c4, #fad0c4, #ffdde1);
       background-size: 400% 400%;
       animation: gradientBG 15s ease infinite;
@@ -89,6 +88,7 @@
       border-radius: 10px;
       box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
       padding: 10px;
+      transition: opacity 0.3s ease;
     }
     /* Tile styling with vibrant colors */
     .tile {
@@ -100,7 +100,7 @@
       justify-content: center;
       cursor: pointer;
       border-radius: 5px;
-      transition: transform 0.2s;
+      transition: all 0.3s ease;
       aspect-ratio: 1;
     }
     .tile:hover {
@@ -109,6 +109,50 @@
     .tile.empty {
       background: transparent;
       cursor: default;
+    }
+    /* Custom Modal for alerts */
+    #modalOverlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0, 0, 0, 0.6);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 200;
+    }
+    #modalBox {
+      background: #fff;
+      border-radius: 10px;
+      padding: 20px;
+      max-width: 300px;
+      width: 80%;
+      text-align: center;
+      box-shadow: 0 4px 8px rgba(0,0,0,0.3);
+      animation: fadeIn 0.3s ease;
+    }
+    #modalBox h2 {
+      margin-top: 0;
+      color: #4CAF50;
+    }
+    #modalBox button {
+      background: #4CAF50;
+      border: none;
+      color: #fff;
+      padding: 10px 20px;
+      margin-top: 15px;
+      border-radius: 5px;
+      cursor: pointer;
+      font-size: 1rem;
+    }
+    #modalBox button:hover {
+      background: #45a049;
+    }
+    @keyframes fadeIn {
+      from { opacity: 0; transform: scale(0.9); }
+      to { opacity: 1; transform: scale(1); }
     }
     /* Responsive adjustments */
     @media (max-width: 400px) {
@@ -153,6 +197,14 @@
   <!-- Game Board Container -->
   <div class="game-container" id="board"></div>
 
+  <!-- Custom Modal for alerts -->
+  <div id="modalOverlay">
+    <div id="modalBox">
+      <h2 id="modalMessage">Level Complete!</h2>
+      <button id="modalButton">Next</button>
+    </div>
+  </div>
+
   <script>
     // Global game variables
     let currentLevel = 1;
@@ -161,8 +213,18 @@
     let numbers = [];
     let solvedBoard = [];
 
-    // Initialize the game based on current level
-    function initGame() {
+    // Retrieve current level from local storage if available
+    if (localStorage.getItem("currentLevel")) {
+      currentLevel = parseInt(localStorage.getItem("currentLevel"), 10);
+    }
+
+    // Utility sleep function for animation delays
+    function sleep(ms) {
+      return new Promise(resolve => setTimeout(resolve, ms));
+    }
+
+    // Initialize the game based on the current level
+    async function initGame() {
       // Set board size: levels 1-3 use 3x3, levels 4-10 use 4x4
       boardSize = (currentLevel <= 3) ? 3 : 4;
       
@@ -176,34 +238,36 @@
       // Start with the solved configuration
       numbers = solvedBoard.slice();
 
-      // Shuffle the board with a number of random moves based on level
+      // Animate the shuffle of the board with a series of valid moves
       const moves = getShuffleMoves(currentLevel, boardSize);
-      simulateShuffle(moves);
+      await simulateShuffle(moves);
       
       updateLevelDisplay();
       renderBoard();
     }
 
-    // Determine the number of random moves (difficulty) based on level and board size
+    // Determine the number of shuffle moves based on level and board size
     function getShuffleMoves(level, boardSize) {
       if (boardSize === 3) {
-        return 10 + (level - 1) * 5; // Level 1:10, Level 2:15, Level 3:20 moves
+        return 10 + (level - 1) * 5; // Levels 1:10, 2:15, 3:20 moves
       } else {
-        return 40 + (level - 4) * 10; // Level 4:40, Level 5:50, ... Level 10:100 moves
+        return 40 + (level - 4) * 10; // Levels 4:40, 5:50, ... 10:100 moves
       }
     }
 
-    // Simulate random valid moves from the solved state to guarantee solvability
-    function simulateShuffle(moves) {
+    // Simulate valid moves from the solved state (animated shuffle)
+    async function simulateShuffle(moves) {
       for (let i = 0; i < moves; i++) {
         let emptyIndex = numbers.indexOf(null);
         let validMoves = getValidMoves(emptyIndex);
         let randomMove = validMoves[Math.floor(Math.random() * validMoves.length)];
         [numbers[emptyIndex], numbers[randomMove]] = [numbers[randomMove], numbers[emptyIndex]];
+        renderBoard();
+        await sleep(30);
       }
     }
 
-    // Get indexes that can move into the empty space (up, down, left, right)
+    // Get indexes of tiles that can move into the empty space (up, down, left, right)
     function getValidMoves(emptyIndex) {
       let moves = [];
       let row = Math.floor(emptyIndex / boardSize);
@@ -215,7 +279,7 @@
       return moves;
     }
 
-    // Returns a tile color based on its number, cycling through a festive palette
+    // Return a tile color based on its number from a festive palette
     function getTileColor(num) {
       const colors = [
         "#ff6ec4", // vibrant pink
@@ -233,7 +297,7 @@
       return colors[(num - 1) % colors.length];
     }
 
-    // Render the board dynamically
+    // Render the game board dynamically
     function renderBoard() {
       const board = document.getElementById("board");
       board.innerHTML = "";
@@ -252,7 +316,7 @@
       });
     }
 
-    // Move a tile if it's adjacent to the empty space
+    // Handle a tile move if it is adjacent to the empty space
     function moveTile(index) {
       let emptyIndex = numbers.indexOf(null);
       let validMoves = getValidMoves(emptyIndex);
@@ -263,22 +327,38 @@
       }
     }
 
-    // Check if the current board matches the solved state
+    // Check if the current board configuration is solved
     function checkSolved() {
       let solved = numbers.every((num, i) => num === solvedBoard[i]);
       if (solved) {
         if (currentLevel < totalLevels) {
-          setTimeout(() => {
-            alert(`Level ${currentLevel} complete! Proceeding to next level.`);
+          showModal(`Level ${currentLevel} complete! Proceed to next level.`, "Next Level", () => {
             currentLevel++;
+            localStorage.setItem("currentLevel", currentLevel);
             initGame();
-          }, 200);
+          });
         } else {
-          setTimeout(() => {
-            alert("Congratulations! You've completed all levels!");
-          }, 200);
+          showModal("Congratulations! You've completed all levels!", "Restart", () => {
+            currentLevel = 1;
+            localStorage.setItem("currentLevel", currentLevel);
+            initGame();
+          });
         }
       }
+    }
+
+    // Display a custom modal alert with a message, button text, and a callback
+    function showModal(message, buttonText, callback) {
+      const overlay = document.getElementById("modalOverlay");
+      const modalMessage = document.getElementById("modalMessage");
+      const modalButton = document.getElementById("modalButton");
+      modalMessage.textContent = message;
+      modalButton.textContent = buttonText;
+      overlay.style.display = "flex";
+      modalButton.onclick = () => {
+        overlay.style.display = "none";
+        if (callback) callback();
+      };
     }
 
     // Restart the current level
@@ -301,7 +381,7 @@
       document.getElementById("levelDisplay").textContent = "Level: " + currentLevel;
     }
 
-    // Start game when the page loads
+    // Start the game when the page loads
     window.onload = initGame;
   </script>
 </body>
