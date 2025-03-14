@@ -72,11 +72,16 @@
     .settings-menu ul li:hover {
       background: #f0f0f0;
     }
-    /* Level Display (shifted down from header) */
+    /* Level and Timer Display (shifted down from header) */
     #levelDisplay {
       margin-top: 70px;
       font-size: 1.2rem;
       font-weight: bold;
+    }
+    #timerDisplay {
+      font-size: 1rem;
+      color: #e74c3c;
+      margin: 5px;
     }
     /* Game Board Container */
     .game-container {
@@ -108,6 +113,11 @@
     }
     .tile.empty {
       background: transparent;
+      cursor: default;
+    }
+    /* Obstacle tile styling */
+    .tile.obstacle {
+      background: #7f8c8d;
       cursor: default;
     }
     /* Custom Modal for alerts */
@@ -191,8 +201,9 @@
     </ul>
   </div>
 
-  <!-- Level Indicator -->
+  <!-- Level and Timer Display -->
   <div id="levelDisplay">Level: 1</div>
+  <div id="timerDisplay"></div>
 
   <!-- Game Board Container -->
   <div class="game-container" id="board"></div>
@@ -212,74 +223,134 @@
     let boardSize;
     let numbers = [];
     let solvedBoard = [];
+    let obstacleIndex = null; // For advanced levels (≥9)
+    let lastEmptyIndex = null; // For smarter shuffle
 
-    // Retrieve current level from local storage if available
+    // Timer variables (for Time Challenge Mode in levels ≥7)
+    let timeLeft = 0;
+    let timerInterval = null;
+
+    // Retrieve current level from localStorage if available
     if (localStorage.getItem("currentLevel")) {
       currentLevel = parseInt(localStorage.getItem("currentLevel"), 10);
     }
 
-    // Utility sleep function for animation delays
+    // Utility sleep function (returns a promise that resolves after ms milliseconds)
     function sleep(ms) {
       return new Promise(resolve => setTimeout(resolve, ms));
     }
 
     // Initialize the game based on the current level
     async function initGame() {
-      // Set board size: levels 1-3 use 3x3, levels 4-10 use 4x4
+      // Clear any existing timer
+      clearInterval(timerInterval);
+      document.getElementById("timerDisplay").textContent = "";
+
+      // Set board size: levels 1–3 use 3×3, levels 4–10 use 4×4
       boardSize = (currentLevel <= 3) ? 3 : 4;
+      const totalCells = boardSize * boardSize;
       
-      // Build the solved board: numbers 1 ... (n*n - 1) with last tile null
-      solvedBoard = [];
-      for (let i = 1; i < boardSize * boardSize; i++) {
-        solvedBoard.push(i);
+      // For levels ≥9, add an obstacle tile
+      if (currentLevel >= 9) {
+        // Choose a random obstacle index that is not the last cell (reserved for empty)
+        do {
+          obstacleIndex = Math.floor(Math.random() * totalCells);
+        } while (obstacleIndex === totalCells - 1);
+      } else {
+        obstacleIndex = null;
       }
-      solvedBoard.push(null);
+      
+      // Build the solved board
+      if (obstacleIndex !== null) {
+        solvedBoard = new Array(totalCells);
+        let counter = 1;
+        for (let i = 0; i < totalCells; i++) {
+          if (i === obstacleIndex) {
+            solvedBoard[i] = "obstacle";
+          } else {
+            solvedBoard[i] = counter;
+            counter++;
+          }
+        }
+        // Set the last non-obstacle cell (in reading order) to empty
+        for (let i = totalCells - 1; i >= 0; i--) {
+          if (i !== obstacleIndex) {
+            solvedBoard[i] = null;
+            break;
+          }
+        }
+      } else {
+        solvedBoard = [];
+        for (let i = 1; i < totalCells; i++) {
+          solvedBoard.push(i);
+        }
+        solvedBoard.push(null);
+      }
       
       // Start with the solved configuration
       numbers = solvedBoard.slice();
 
-      // Animate the shuffle of the board with a series of valid moves
+      // Start timer for Time Challenge Mode (levels ≥7)
+      if (currentLevel >= 7) {
+        // For example: level 7 gets 30s, level 8 25s, level 9 20s, level 10 15s (minimum 10 seconds)
+        timeLeft = Math.max(30 - (currentLevel - 7) * 5, 10);
+        startTimer();
+      }
+      
+      // Smarter, animated shuffle: number of moves increases with level/difficulty
       const moves = getShuffleMoves(currentLevel, boardSize);
+      lastEmptyIndex = null;
       await simulateShuffle(moves);
       
       updateLevelDisplay();
       renderBoard();
     }
 
-    // Determine the number of shuffle moves based on level and board size
+    // Determine number of shuffle moves based on level and board size
     function getShuffleMoves(level, boardSize) {
       if (boardSize === 3) {
-        return 10 + (level - 1) * 5; // Levels 1:10, 2:15, 3:20 moves
+        return 10 + (level - 1) * 5; // e.g. Level 1:10, Level 2:15, Level 3:20 moves
       } else {
-        return 40 + (level - 4) * 10; // Levels 4:40, 5:50, ... 10:100 moves
+        return 40 + (level - 4) * 10; // e.g. Level 4:40, Level 5:50, …, Level 10:100 moves
       }
     }
 
-    // Simulate valid moves from the solved state (animated shuffle)
+    // Simulate valid moves (animated) from the solved state to shuffle the board
     async function simulateShuffle(moves) {
       for (let i = 0; i < moves; i++) {
         let emptyIndex = numbers.indexOf(null);
         let validMoves = getValidMoves(emptyIndex);
+        // Avoid immediately reversing the last move if possible
+        if (lastEmptyIndex !== null && validMoves.length > 1) {
+          validMoves = validMoves.filter(idx => idx !== lastEmptyIndex);
+        }
         let randomMove = validMoves[Math.floor(Math.random() * validMoves.length)];
+        // Record the current empty index before swapping
+        lastEmptyIndex = emptyIndex;
         [numbers[emptyIndex], numbers[randomMove]] = [numbers[randomMove], numbers[emptyIndex]];
         renderBoard();
         await sleep(30);
       }
     }
 
-    // Get indexes of tiles that can move into the empty space (up, down, left, right)
+    // Get indexes of tiles that can move into the empty space (up, down, left, right),
+    // skipping over any obstacle tile.
     function getValidMoves(emptyIndex) {
       let moves = [];
       let row = Math.floor(emptyIndex / boardSize);
       let col = emptyIndex % boardSize;
-      if (row > 0) moves.push(emptyIndex - boardSize);
-      if (row < boardSize - 1) moves.push(emptyIndex + boardSize);
-      if (col > 0) moves.push(emptyIndex - 1);
-      if (col < boardSize - 1) moves.push(emptyIndex + 1);
+      // Up
+      if (row > 0 && numbers[emptyIndex - boardSize] !== "obstacle") moves.push(emptyIndex - boardSize);
+      // Down
+      if (row < boardSize - 1 && numbers[emptyIndex + boardSize] !== "obstacle") moves.push(emptyIndex + boardSize);
+      // Left
+      if (col > 0 && numbers[emptyIndex - 1] !== "obstacle") moves.push(emptyIndex - 1);
+      // Right
+      if (col < boardSize - 1 && numbers[emptyIndex + 1] !== "obstacle") moves.push(emptyIndex + 1);
       return moves;
     }
 
-    // Return a tile color based on its number from a festive palette
+    // Return a tile color from a festive palette based on its number
     function getTileColor(num) {
       const colors = [
         "#ff6ec4", // vibrant pink
@@ -302,18 +373,24 @@
       const board = document.getElementById("board");
       board.innerHTML = "";
       board.style.gridTemplateColumns = `repeat(${boardSize}, 1fr)`;
-      numbers.forEach((num, index) => {
+      numbers.forEach((cell, index) => {
         let tile = document.createElement("div");
         tile.classList.add("tile");
-        if (num === null) {
+        if (cell === null) {
           tile.classList.add("empty");
+        } else if (cell === "obstacle") {
+          tile.classList.add("obstacle");
+          tile.textContent = "X";
         } else {
-          tile.textContent = num;
-          tile.style.backgroundColor = getTileColor(num);
+          tile.textContent = cell;
+          tile.style.backgroundColor = getTileColor(cell);
           tile.onclick = () => moveTile(index);
         }
         board.appendChild(tile);
       });
+      // Add a subtle fade animation to the board on re-render
+      board.classList.add("moved");
+      setTimeout(() => board.classList.remove("moved"), 200);
     }
 
     // Handle a tile move if it is adjacent to the empty space
@@ -327,10 +404,12 @@
       }
     }
 
-    // Check if the current board configuration is solved
+    // Check if the current board matches the solved state
     function checkSolved() {
-      let solved = numbers.every((num, i) => num === solvedBoard[i]);
+      let solved = numbers.every((cell, i) => cell === solvedBoard[i]);
       if (solved) {
+        // Clear timer if in Time Challenge Mode
+        clearInterval(timerInterval);
         if (currentLevel < totalLevels) {
           showModal(`Level ${currentLevel} complete! Proceed to next level.`, "Next Level", () => {
             currentLevel++;
@@ -344,6 +423,25 @@
             initGame();
           });
         }
+      }
+    }
+
+    // Start the countdown timer (for Time Challenge Mode)
+    function startTimer() {
+      updateTimer(); // Initial display
+      timerInterval = setInterval(updateTimer, 1000);
+    }
+
+    // Update the timer display and check for timeout
+    function updateTimer() {
+      if (timeLeft > 0) {
+        document.getElementById("timerDisplay").textContent = "Time Left: " + timeLeft + "s";
+        timeLeft--;
+      } else {
+        clearInterval(timerInterval);
+        showModal("Time's up! Try again.", "Restart", () => {
+          initGame();
+        });
       }
     }
 
